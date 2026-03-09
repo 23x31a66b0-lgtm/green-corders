@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agriculture Assistant</title>
+<style>
+body { font-family: Arial; background:#f5f5dc; margin:0; padding:0;}
+.container { max-width:400px; margin:40px auto; padding:20px; background:#fff9e6; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
+input, button { width:100%; padding:10px; margin:8px 0; border-radius:5px; }
+button { background:#2d5d2e; color:white; border:none; cursor:pointer; }
+button.lang{ width:auto; margin:5px 5px 5px 0; background:#ccc; color:#000;}
+.hidden{display:none;}
+#aiAnswer{margin-top:10px;background:#fff3cc;padding:10px;border-radius:5px;min-height:50px;white-space: pre-wrap;}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="container" id="loginScreen">
+  <h2>AI Agriculture Assistant</h2>
+  <input type="text" id="username" placeholder="Enter Name">
+  <button onclick="generateOTP()">Get OTP</button>
+  <div id="otpDiv" class="hidden">
+    <input type="text" id="otpInput" placeholder="Enter OTP">
+    <button onclick="verifyOTP()">Verify OTP</button>
+    <p id="otpMessage"></p>
+  </div>
+</div>
+
+<!-- Profile Screen -->
+<div class="container hidden" id="profileScreen">
+  <h2>Setup Profile</h2>
+  <input type="text" id="area" placeholder="Enter Area">
+  <input type="password" id="password" placeholder="Set Password">
+  <p>Preferred Language:</p>
+  <button class="lang" onclick="setLanguage('English')">English</button>
+  <button class="lang" onclick="setLanguage('हिंदी')">हिंदी</button>
+  <button class="lang" onclick="setLanguage('తెలుగు')">తెలుగు</button>
+  <button onclick="saveProfile()">Continue</button>
+</div>
+
+<!-- Dashboard -->
+<div class="container hidden" id="dashboardScreen">
+  <h2>Welcome, <span id="userDisplay"></span>!</h2>
+
+  <button onclick="askQuestion()">Ask Question</button>
+  <input type="file" id="cropImage">
+  <button onclick="uploadImage()">Upload Crop Image</button>
+  <input type="file" id="voiceInput" accept="audio/*">
+  <button onclick="uploadVoice()">Submit Voice Query</button>
+  <button onclick="weatherCrops()">Weather & Crops</button>
+
+  <h3>Farming Tips</h3>
+  <button onclick="soilTips()">Soil Health Tips</button>
+  <button onclick="fertilizerTips()">Best Fertilizer Guide</button>
+  <button onclick="seasonalCrops()">Seasonal Crop Suggestion</button>
+
+  <div id="aiAnswer"></div>
+</div>
+
+<script>
+let otp = null;
+let selectedLanguage='English';
+
+function setLanguage(lang){ selectedLanguage=lang; }
+
+function generateOTP(){
+    if(!document.getElementById('username').value){ alert('Enter Name'); return; }
+    otp=Math.floor(100000 + Math.random()*900000);
+    alert("Your OTP is: "+otp);
+    document.getElementById('otpDiv').classList.remove('hidden');
+    document.getElementById('otpMessage').innerText="Enter the OTP displayed above";
+}
+
+function verifyOTP(){
+    if(parseInt(document.getElementById('otpInput').value)===otp){
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('profileScreen').classList.remove('hidden');
+    } else { document.getElementById('otpMessage').innerText="Incorrect OTP"; }
+}
+
+function saveProfile(){
+    if(!document.getElementById('area').value || !document.getElementById('password').value){
+        alert('Fill all fields'); return;
+    }
+    document.getElementById('profileScreen').classList.add('hidden');
+    showDashboard();
+}
+
+function showDashboard(){
+    document.getElementById('dashboardScreen').classList.remove('hidden');
+    document.getElementById('userDisplay').innerText=document.getElementById('username').value;
+}
+
+function askQuestion(){
+    let q = prompt("Ask your agriculture question:");
+    if(!q) return;
+    fetch("http://127.0.0.1:5000/ask-question", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({question:q})
+    }).then(r=>r.json()).then(d=>{
+        document.getElementById('aiAnswer').innerText="Answer: "+d.answer;
+    }).catch(e=>alert("Error:"+e));
+}
+
+function uploadImage(){
+    let file=document.getElementById('cropImage').files[0];
+    if(!file){ alert("Select image"); return; }
+    let formData=new FormData();
+    formData.append("image",file);
+    fetch("http://127.0.0.1:5000/image-diagnosis",{
+        method:"POST", body:formData
+    }).then(r=>r.json()).then(d=>document.getElementById('aiAnswer').innerText=d.result);
+}
+
+function uploadVoice(){
+    let file=document.getElementById('voiceInput').files[0];
+    if(!file){ alert("Select audio"); return; }
+    let formData=new FormData();
+    formData.append("audio",file);
+    fetch("http://127.0.0.1:5000/voice-query",{method:"POST",body:formData})
+    .then(r=>r.json()).then(d=>document.getElementById('aiAnswer').innerText=d.result);
+}
+
+function weatherCrops(){
+    let location=prompt("Enter your location:");
+    fetch("http://127.0.0.1:5000/weather-crops",{
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({location})
+    }).then(r=>r.json()).then(d=>{
+        document.getElementById('aiAnswer').innerText=
+        `Location: ${d.location}\nWeather: ${d.weather}\nSuitable crops: ${d.crops.join(", ")}`;
+    });
+}
+
+function soilTips(){
+    let q=prompt("Ask about soil tips:");
+    fetch("http://127.0.0.1:5000/soil-tips",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})})
+    .then(r=>r.json()).then(d=>document.getElementById('aiAnswer').innerText=d.answer);
+}
+
+function fertilizerTips(){
+    let q=prompt("Ask about fertilizer:");
+    fetch("http://127.0.0.1:5000/fertilizer-tips",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})})
+    .then(r=>r.json()).then(d=>document.getElementById('aiAnswer').innerText=d.answer);
+}
+
+function seasonalCrops(){
+    let season=prompt("Enter season (Winter/Summer/Monsoon):");
+    let location=prompt("Enter your area:");
+    fetch("http://127.0.0.1:5000/seasonal-crops",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({season,location})})
+    .then(r=>r.json()).then(d=>{
+        document.getElementById('aiAnswer').innerText=
+        `Season: ${season}\nLocation: ${d.location}\nRecommended crops: ${d.crops.join(", ")}`;
+    });
+}
+</script>
+</body>
+</html>
